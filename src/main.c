@@ -18,10 +18,10 @@
 #define MATRIX_LED_PIN 7
 
 void gpio_irq_handler(uint gpio, uint32_t events);
-void vBlinkLed1Task();
-void vBlinkLed2Task();
+void vrgb_display_task();
+void vmode_toggle_task();
 void vDisplay3Task();
-void vMatrixDisplayTask();
+void vmatrix_display_task();
 
 bool is_night_mode = false;
 
@@ -33,13 +33,11 @@ int main()
 
     gpio_set_irq_enabled_with_callback(BUTTON_B_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
-    /* xTaskCreate(vBlinkLed1Task, "Blink Task Led1", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vrgb_display_task, "Semáforo - Led RGB", configMINIMAL_STACK_SIZE,
          NULL, tskIDLE_PRIORITY, NULL);
-    xTaskCreate(vBlinkLed2Task, "Blink Task Led2", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vmatrix_display_task, "Semáforo - Matriz de Led", configMINIMAL_STACK_SIZE,
         NULL, tskIDLE_PRIORITY, NULL);
-    xTaskCreate(vDisplay3Task, "Cont Task Disp3", configMINIMAL_STACK_SIZE,
-        NULL, tskIDLE_PRIORITY, NULL); */
-    xTaskCreate(vMatrixDisplayTask, "Semáforo - Matriz de Led", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vmode_toggle_task, "Semáforo - Mudar modo", configMINIMAL_STACK_SIZE,
         NULL, tskIDLE_PRIORITY, NULL);
 
     vTaskStartScheduler();
@@ -51,31 +49,46 @@ void gpio_irq_handler(uint gpio, uint32_t events)
     reset_usb_boot(0, 0);
 }
 
-void vBlinkLed1Task()
+void vrgb_display_task()
 {
-    init_led(GREEN_LED_PIN);
+    init_leds();
 
     while (true)
     {
+        leds_off();
         gpio_put(GREEN_LED_PIN, true);
-        vTaskDelay(pdMS_TO_TICKS(250));
-        gpio_put(GREEN_LED_PIN, false);
-        vTaskDelay(pdMS_TO_TICKS(1223));
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        leds_off();
+        gpio_put(GREEN_LED_PIN, true);
+        gpio_put(RED_LED_PIN, true);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        leds_off();
+        gpio_put(RED_LED_PIN, true);
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
-void vBlinkLed2Task()
+/* void vmode_toggle_task()
 {
-    init_led(BLUE_LED_PIN);
+    init_btn(BUTTON_A_PIN);
+    absolute_time_t last_press = 0;
 
     while (true)
     {
-        gpio_put(BLUE_LED_PIN, true);
-        vTaskDelay(pdMS_TO_TICKS(250));
-        gpio_put(BLUE_LED_PIN, false);
-        vTaskDelay(pdMS_TO_TICKS(1223));
+        if (btn_is_pressed(BUTTON_B_PIN))
+        {
+            absolute_time_t now = get_absolute_time();
+            if (absolute_time_diff_us(last_press, now) > 2000000)
+            {
+                is_night_mode = !is_night_mode; // Alterna o modo
+                last_press = now;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
-}
+} */
 
 void vDisplay3Task()
 {
@@ -103,7 +116,7 @@ void vDisplay3Task()
     }
 }
 
-void vMatrixDisplayTask(){
+void vmatrix_display_task(){
     ws2812b_init(MATRIX_LED_PIN); // Inicializa o driver de LED
 
     ws2812b_clear(); // Limpa a matriz de LED

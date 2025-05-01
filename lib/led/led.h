@@ -10,5 +10,6 @@
 
 void init_led(uint8_t pin);
 void init_leds();
+void leds_off();
 
 #endif // LED_H

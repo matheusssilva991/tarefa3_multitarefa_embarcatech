@@ -10,3 +10,9 @@ void init_leds() {
     init_led(BLUE_LED_PIN);
     init_led(RED_LED_PIN);
 }
+
+void leds_off() {
+    gpio_put(GREEN_LED_PIN, false);
+    gpio_put(BLUE_LED_PIN, false);
+    gpio_put(RED_LED_PIN, false);
+}
