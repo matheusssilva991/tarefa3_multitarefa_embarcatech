@@ -15,10 +15,15 @@
 #include "FreeRTOSConfig.h"
 #include "task.h"
 
+#define MATRIX_LED_PIN 7
+
 void gpio_irq_handler(uint gpio, uint32_t events);
 void vBlinkLed1Task();
 void vBlinkLed2Task();
 void vDisplay3Task();
+void vMatrixDisplayTask();
+
+bool is_night_mode = false;
 
 int main()
 {
@@ -28,11 +33,13 @@ int main()
 
     gpio_set_irq_enabled_with_callback(BUTTON_B_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
-    xTaskCreate(vBlinkLed1Task, "Blink Task Led1", configMINIMAL_STACK_SIZE,
+    /* xTaskCreate(vBlinkLed1Task, "Blink Task Led1", configMINIMAL_STACK_SIZE,
          NULL, tskIDLE_PRIORITY, NULL);
     xTaskCreate(vBlinkLed2Task, "Blink Task Led2", configMINIMAL_STACK_SIZE,
         NULL, tskIDLE_PRIORITY, NULL);
     xTaskCreate(vDisplay3Task, "Cont Task Disp3", configMINIMAL_STACK_SIZE,
+        NULL, tskIDLE_PRIORITY, NULL); */
+    xTaskCreate(vMatrixDisplayTask, "Semáforo - Matriz de Led", configMINIMAL_STACK_SIZE,
         NULL, tskIDLE_PRIORITY, NULL);
 
     vTaskStartScheduler();
@@ -93,6 +100,36 @@ void vDisplay3Task()
         ssd1306_draw_string(&ssd, str_y, 40, 52);          // Desenha uma string
         ssd1306_send_data(&ssd);                           // Atualiza o display
         sleep_ms(735);
+    }
+}
+
+void vMatrixDisplayTask(){
+    ws2812b_init(MATRIX_LED_PIN); // Inicializa o driver de LED
+
+    ws2812b_clear(); // Limpa a matriz de LED
+    while (true) {
+        if (is_night_mode) {
+            ws2812b_clear(); // Limpa a matriz de LED
+            ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
+            ws2812b_write();
+            vTaskDelay(pdMS_TO_TICKS(250));
+
+        } else {
+            ws2812b_clear(); // Limpa a matriz de LED
+            ws2812b_set_led(17, 0, 8, 0); // Define o LED 17 como verde
+            ws2812b_write();
+            vTaskDelay(pdMS_TO_TICKS(2000));
+
+            ws2812b_clear(); // Limpa a matriz de LED
+            ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
+            ws2812b_write();
+            vTaskDelay(pdMS_TO_TICKS(2000));
+
+            ws2812b_clear(); // Limpa a matriz de LED
+            ws2812b_set_led(7, 8, 0, 0); // Define o LED 7 como vermelho
+            ws2812b_write();
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
     }
 }
 
