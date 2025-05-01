@@ -1,17 +1,20 @@
 #include "led.h"
 
-void init_led(uint8_t pin) {
+void init_led(uint8_t pin)
+{
     gpio_init(pin);
     gpio_set_dir(pin, GPIO_OUT);
 }
 
-void init_leds() {
+void init_leds()
+{
     init_led(GREEN_LED_PIN);
     init_led(BLUE_LED_PIN);
     init_led(RED_LED_PIN);
 }
 
-void leds_off() {
+void turn_off_leds()
+{
     gpio_put(GREEN_LED_PIN, false);
     gpio_put(BLUE_LED_PIN, false);
     gpio_put(RED_LED_PIN, false);
