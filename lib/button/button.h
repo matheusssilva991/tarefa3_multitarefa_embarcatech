@@ -1,3 +1,6 @@
+#ifndef BUTTON_H
+#define BUTTON_H
+
 #include <stdlib.h>
 #include "pico/stdlib.h"
 
@@ -6,3 +9,5 @@
 
 void init_btn(uint8_t pin);
 void init_btns();
+
+#endif // BUTTON_H

@@ -1,63 +1,79 @@
+#include <stdio.h>
+
 #include "pico/stdlib.h"
+#include "pico/bootrom.h"
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
-#include "lib/ssd1306.h"
-#include "lib/font.h"
+
+#include "lib/ssd1306/ssd1306.h"
+#include "lib/ssd1306/display.h"
+#include "lib/led/led.h"
+#include "lib/button/button.h"
+#include "lib/ws2812b/ws2812b.h"
+
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
-#include <stdio.h>
 
-#define I2C_PORT i2c1
-#define I2C_SDA 14
-#define I2C_SCL 15
-#define endereco 0x3C
+void gpio_irq_handler(uint gpio, uint32_t events);
+void vBlinkLed1Task();
+void vBlinkLed2Task();
+void vDisplay3Task();
 
-#define led1 11
-#define led2 12
+int main()
+{
+    stdio_init_all();
+
+    init_btn(BUTTON_B_PIN);
+
+    gpio_set_irq_enabled_with_callback(BUTTON_B_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+
+    xTaskCreate(vBlinkLed1Task, "Blink Task Led1", configMINIMAL_STACK_SIZE,
+         NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(vBlinkLed2Task, "Blink Task Led2", configMINIMAL_STACK_SIZE,
+        NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(vDisplay3Task, "Cont Task Disp3", configMINIMAL_STACK_SIZE,
+        NULL, tskIDLE_PRIORITY, NULL);
+
+    vTaskStartScheduler();
+    panic_unsupported();
+}
+
+void gpio_irq_handler(uint gpio, uint32_t events)
+{
+    reset_usb_boot(0, 0);
+}
 
 void vBlinkLed1Task()
 {
-    gpio_init(led1);
-    gpio_set_dir(led1, GPIO_OUT);
+    init_led(GREEN_LED_PIN);
+
     while (true)
     {
-        gpio_put(led1, true);
+        gpio_put(GREEN_LED_PIN, true);
         vTaskDelay(pdMS_TO_TICKS(250));
-        gpio_put(led1, false);
+        gpio_put(GREEN_LED_PIN, false);
         vTaskDelay(pdMS_TO_TICKS(1223));
     }
 }
 
 void vBlinkLed2Task()
 {
-    gpio_init(led2);
-    gpio_set_dir(led2, GPIO_OUT);
+    init_led(BLUE_LED_PIN);
+
     while (true)
     {
-        gpio_put(led2, true);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        gpio_put(led2, false);
-        vTaskDelay(pdMS_TO_TICKS(2224));
+        gpio_put(BLUE_LED_PIN, true);
+        vTaskDelay(pdMS_TO_TICKS(250));
+        gpio_put(BLUE_LED_PIN, false);
+        vTaskDelay(pdMS_TO_TICKS(1223));
     }
 }
 
 void vDisplay3Task()
 {
-    // I2C Initialisation. Using it at 400Khz.
-    i2c_init(I2C_PORT, 400 * 1000);
-
-    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);                    // Set the GPIO pin function to I2C
-    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);                    // Set the GPIO pin function to I2C
-    gpio_pull_up(I2C_SDA);                                        // Pull up the data line
-    gpio_pull_up(I2C_SCL);                                        // Pull up the clock line
     ssd1306_t ssd;                                                // Inicializa a estrutura do display
-    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT); // Inicializa o display
-    ssd1306_config(&ssd);                                         // Configura o display
-    ssd1306_send_data(&ssd);                                      // Envia os dados para o display
-    // Limpa o display. O display inicia com todos os pixels apagados.
-    ssd1306_fill(&ssd, false);
-    ssd1306_send_data(&ssd);
+    init_display(&ssd);                                          // Inicializa o display
 
     char str_y[5]; // Buffer para armazenar a string
     int contador = 0;
@@ -80,31 +96,3 @@ void vDisplay3Task()
     }
 }
 
-// Trecho para modo BOOTSEL com botão B
-#include "pico/bootrom.h"
-#define botaoB 6
-void gpio_irq_handler(uint gpio, uint32_t events)
-{
-    reset_usb_boot(0, 0);
-}
-
-int main()
-{
-    // Para ser utilizado o modo BOOTSEL com botão B
-    gpio_init(botaoB);
-    gpio_set_dir(botaoB, GPIO_IN);
-    gpio_pull_up(botaoB);
-    gpio_set_irq_enabled_with_callback(botaoB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-    // Fim do trecho para modo BOOTSEL com botão B
-
-    stdio_init_all();
-
-    xTaskCreate(vBlinkLed1Task, "Blink Task Led1", configMINIMAL_STACK_SIZE,
-         NULL, tskIDLE_PRIORITY, NULL);
-    xTaskCreate(vBlinkLed2Task, "Blink Task Led2", configMINIMAL_STACK_SIZE, 
-        NULL, tskIDLE_PRIORITY, NULL);
-    xTaskCreate(vDisplay3Task, "Cont Task Disp3", configMINIMAL_STACK_SIZE, 
-        NULL, tskIDLE_PRIORITY, NULL);
-    vTaskStartScheduler();
-    panic_unsupported();
-}
