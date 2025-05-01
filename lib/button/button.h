@@ -9,5 +9,6 @@
 
 void init_btn(uint8_t pin);
 void init_btns();
+bool btn_is_pressed(uint8_t pin);
 
 #endif // BUTTON_H
