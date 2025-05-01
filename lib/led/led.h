@@ -11,5 +11,9 @@
 void init_led(uint8_t pin);
 void init_leds();
 void turn_off_leds();
+void set_led_green();
+void set_led_blue();
+void set_led_red();
+void set_led_yellow();
 
 #endif // LED_H

@@ -19,3 +19,28 @@ void turn_off_leds()
     gpio_put(BLUE_LED_PIN, false);
     gpio_put(RED_LED_PIN, false);
 }
+
+void set_led_green()
+{
+    turn_off_leds();
+    gpio_put(GREEN_LED_PIN, true);
+}
+
+void set_led_blue()
+{
+    turn_off_leds();
+    gpio_put(BLUE_LED_PIN, true);
+}
+
+void set_led_red()
+{
+    turn_off_leds();
+    gpio_put(RED_LED_PIN, true);
+}
+
+void set_led_yellow()
+{
+    turn_off_leds();
+    gpio_put(GREEN_LED_PIN, true);
+    gpio_put(RED_LED_PIN, true);
+}

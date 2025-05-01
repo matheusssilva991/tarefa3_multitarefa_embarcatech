@@ -18,15 +18,30 @@
 #define MATRIX_LED_PIN 7
 #define TRAFFIC_LIGHT_DELAY_MS 2000
 
+typedef struct traffic_light_config_t
+{
+    void (*led_function)(void);  // Função para acender os LEDs
+    int rgb_led_state[3][3];     // Estado dos LEDs RGB (0: off, 1: on)
+    int matrix_led_indexes[3];   // Índices dos LEDs na matriz
+    int matrix_led_colors[3][3]; // Cores dos LEDs (R, G, B)
+    bool is_night_mode;          // Modo noturno
+} traffic_light_config_t;
+
 void gpio_irq_handler(uint gpio, uint32_t events);
 void vModeToggleTask();
+void vMatrixDisplayTask();
+void vRGBDisplayTask();
 void vDisplay3Task();
-void vLedStateManagerTask();
-void set_led_green();
-void set_led_yellow();
-void set_led_red();
+void vTrafficLightControlTask();
 
-volatile bool is_night_mode = false;
+volatile traffic_light_config_t traffic_light_config = {
+    .led_function = NULL,
+    .rgb_led_state = {{0, 1, 0}, {1, 1, 0}, {1, 0, 0}},
+    .matrix_led_indexes = {17, 12, 7},
+    .matrix_led_colors = {{0, 8, 0}, {4, 8, 0}, {8, 0, 0}},
+    .is_night_mode = false,
+};
+volatile int light_state = 0; // Estado do semáforo (0: Verde, 1: Amarelo, 2: Vermelho)
 
 int main()
 {
@@ -38,10 +53,14 @@ int main()
 
     /* xTaskCreate(vrgb_display_task, "Semáforo - Led RGB", configMINIMAL_STACK_SIZE,
                 NULL, tskIDLE_PRIORITY, NULL); */
-    xTaskCreate(vLedStateManagerTask, "Semáforo - Gerenciador de LED", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vRGBDisplayTask, "Led RGB", configMINIMAL_STACK_SIZE,
                 NULL, tskIDLE_PRIORITY, NULL);
-    xTaskCreate(vModeToggleTask, "Semáforo - Mudar modo", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vMatrixDisplayTask, "Matriz de Led", configMINIMAL_STACK_SIZE,
+                NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(vModeToggleTask, "Mudar modo", configMINIMAL_STACK_SIZE,
                 NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(vTrafficLightControlTask, "Controle do Semáforo", configMINIMAL_STACK_SIZE,
+        NULL, tskIDLE_PRIORITY + 1, NULL);
 
     vTaskStartScheduler();
     panic_unsupported();
@@ -63,12 +82,72 @@ void vModeToggleTask()
 
         if (btn_is_pressed(BUTTON_A_PIN) && now - last_press > 250)
         {
-            is_night_mode = !is_night_mode; // Alterna o modo
+            traffic_light_config.is_night_mode = !traffic_light_config.is_night_mode; // Alterna o modo
             last_press = now;
 
-            printf("Modo noturno: %s\n", is_night_mode ? "Ativado" : "Desativado");
+            printf("Modo noturno: %s\n", traffic_light_config.is_night_mode ? "Ativado" : "Desativado");
         }
         vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void vRGBDisplayTask()
+{
+    init_leds();
+
+    while (true)
+    {
+        if (traffic_light_config.is_night_mode)
+        {
+            gpio_put(RED_LED_PIN, true);
+            gpio_put(GREEN_LED_PIN, true);
+            gpio_put(BLUE_LED_PIN, false);
+            // vTaskDelay(pdMS_TO_TICKS(TRAFFIC_LIGHT_DELAY_MS));
+        }
+        else
+        {
+            gpio_put(RED_LED_PIN, traffic_light_config.rgb_led_state[light_state][0]);
+            gpio_put(GREEN_LED_PIN, traffic_light_config.rgb_led_state[light_state][1]);
+            gpio_put(BLUE_LED_PIN, traffic_light_config.rgb_led_state[light_state][2]);
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
+            {
+                if (traffic_light_config.is_night_mode)
+                    break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+        }
+    }
+}
+
+void vMatrixDisplayTask()
+{
+    ws2812b_init(MATRIX_LED_PIN); // Inicializa o driver de LED
+    ws2812b_clear();              // Limpa a matriz de LED
+
+    while (true)
+    {
+        if (traffic_light_config.is_night_mode)
+        {
+            ws2812b_clear();              // Limpa a matriz de LED
+            ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
+            ws2812b_write();
+            vTaskDelay(pdMS_TO_TICKS(250));
+        }
+        else
+        {
+            ws2812b_clear(); // Limpa a matriz de LED
+            ws2812b_set_led(traffic_light_config.matrix_led_indexes[light_state],
+                            traffic_light_config.matrix_led_colors[light_state][0],
+                            traffic_light_config.matrix_led_colors[light_state][1],
+                            traffic_light_config.matrix_led_colors[light_state][2]);
+            ws2812b_write();
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
+            {
+                if (traffic_light_config.is_night_mode)
+                    break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+        }
     }
 }
 
@@ -98,82 +177,19 @@ void vDisplay3Task()
     }
 }
 
-void vLedStateManagerTask()
+void vTrafficLightControlTask()
 {
-    init_leds();                  // Inicializa os LEDs
-    ws2812b_init(MATRIX_LED_PIN); // Inicializa o driver de LED
-
-    ws2812b_clear(); // Limpa a matriz de LED
-
     while (true)
     {
-        if (is_night_mode)
+        if (!traffic_light_config.is_night_mode)
         {
-            // Modo noturno: amarelo piscando
-            set_led_yellow();
-            vTaskDelay(pdMS_TO_TICKS(500));
-            turn_off_leds();
-            ws2812b_clear(); // Limpa a matriz de LED
-            ws2812b_write();
-            vTaskDelay(pdMS_TO_TICKS(1500));
+            // Atualiza o estado do semáforo
+            light_state = (light_state + 1) % 3; // Incrementa e reinicia para 0 após 2
+            vTaskDelay(pdMS_TO_TICKS(TRAFFIC_LIGHT_DELAY_MS)); // Aguarda o tempo do estado atual
         }
         else
         {
-            // Modo normal: ciclo semafórico
-            set_led_green();
-            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
-            {
-                if (is_night_mode)
-                    break;
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-
-            set_led_yellow();
-            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
-            {
-                if (is_night_mode)
-                    break;
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-
-            set_led_red();
-            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
-            {
-                if (is_night_mode)
-                    break;
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
+            vTaskDelay(pdMS_TO_TICKS(100)); // Aguarda um tempo menor no modo noturno
         }
     }
-}
-
-void set_led_green()
-{
-    turn_off_leds();
-    gpio_put(GREEN_LED_PIN, true);
-
-    ws2812b_clear();              // Limpa a matriz de LED
-    ws2812b_set_led(17, 0, 8, 0); // Define o LED 17 como verde
-    ws2812b_write();
-}
-
-void set_led_yellow()
-{
-    turn_off_leds();
-    gpio_put(GREEN_LED_PIN, true);
-    gpio_put(RED_LED_PIN, true);
-
-    ws2812b_clear();              // Limpa a matriz de LED
-    ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
-    ws2812b_write();
-}
-
-void set_led_red()
-{
-    turn_off_leds();
-    gpio_put(RED_LED_PIN, true);
-
-    ws2812b_clear();             // Limpa a matriz de LED
-    ws2812b_set_led(7, 8, 0, 0); // Define o LED 7 como vermelho
-    ws2812b_write();
 }
