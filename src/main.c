@@ -16,6 +16,7 @@
 #include "task.h"
 
 #define MATRIX_LED_PIN 7
+#define TRAFFIC_LIGHT_DELAY_MS 2000
 
 void gpio_irq_handler(uint gpio, uint32_t events);
 void vrgb_display_task();
@@ -60,23 +61,32 @@ void vrgb_display_task()
             leds_off();
             gpio_put(GREEN_LED_PIN, true);
             gpio_put(RED_LED_PIN, true);
-            // vTaskDelay(pdMS_TO_TICKS(2000));
+            // vTaskDelay(pdMS_TO_TICKS(TRAFFIC_LIGHT_DELAY_MS));
         }
         else
         {
 
             leds_off();
             gpio_put(GREEN_LED_PIN, true);
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10) {
+                if (is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
 
             leds_off();
             gpio_put(GREEN_LED_PIN, true);
             gpio_put(RED_LED_PIN, true);
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10) {
+                if (is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
 
             leds_off();
             gpio_put(RED_LED_PIN, true);
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10) {
+                if (is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
         }
     }
 }
@@ -97,7 +107,7 @@ void vmode_toggle_task()
 
             printf("Modo noturno: %s\n", is_night_mode ? "Ativado" : "Desativado");
         }
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -146,17 +156,26 @@ void vmatrix_display_task()
             ws2812b_clear();              // Limpa a matriz de LED
             ws2812b_set_led(17, 0, 8, 0); // Define o LED 17 como verde
             ws2812b_write();
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10) {
+                if (is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
 
             ws2812b_clear();              // Limpa a matriz de LED
             ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
             ws2812b_write();
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10) {
+                if (is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
 
             ws2812b_clear();             // Limpa a matriz de LED
             ws2812b_set_led(7, 8, 0, 0); // Define o LED 7 como vermelho
             ws2812b_write();
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10) {
+                if (is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
         }
     }
 }

@@ -39,6 +39,7 @@
     "files.associations": {
         "freertosconfig.h": "c",
         "gpio.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "freertos.h": "c"
     }
 }
