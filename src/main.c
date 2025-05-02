@@ -96,8 +96,6 @@ void vModeToggleTask()
         {
             tl_settings.is_night_mode = !tl_settings.is_night_mode; // Alterna o modo
             last_press = now;
-            stop_tone(BUZZER_A_PIN); // Para o tom do buzzer A
-            stop_tone(BUZZER_B_PIN); // Para o tom do buzzer B
 
             if (tl_settings.is_night_mode)
             {
@@ -214,7 +212,6 @@ void vTrafficLightControlTask()
 
 void vBuzzerTask()
 {
-    // Inicializa o buzzer
     init_buzzer(BUZZER_A_PIN, 4.0f); // Inicializa o PWM para o buzzer A
     init_buzzer(BUZZER_B_PIN, 4.0f); // Inicializa o PWM para o buzzer B
 
@@ -222,17 +219,41 @@ void vBuzzerTask()
     {
         if (tl_settings.is_night_mode)
         {
-            play_tone(BUZZER_A_PIN, 150);    // Toca um tom no buzzer A
-            vTaskDelay(pdMS_TO_TICKS(2000)); // Aguarda dois segundos
-            stop_tone(BUZZER_A_PIN);         // Para o tom
-            vTaskDelay(pdMS_TO_TICKS(2000)); // Aguarda dois segundos
+            stop_tone(BUZZER_B_PIN); // Garante que o buzzer B está parado
+
+            play_tone(BUZZER_A_PIN, 150); // Liga buzzer A
+            for (int i = 0; i < 20; i++) // Espera 2 segundos em fatias de 100ms
+            {
+                if (!tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+
+            stop_tone(BUZZER_A_PIN); // Desliga buzzer A
+            for (int i = 0; i < 20; i++) // Espera mais 2 segundos em fatias
+            {
+                if (!tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
         }
         else
         {
-            play_tone(BUZZER_B_PIN, tl_settings.buzzer_frequency[light_state]);       // Toca um tom no buzzer B
-            vTaskDelay(pdMS_TO_TICKS(tl_settings.buzzer_active_time[light_state]));   // Aguarda o tempo ativo do buzzer
-            stop_tone(BUZZER_B_PIN);                                                  // Para o tom
-            vTaskDelay(pdMS_TO_TICKS(tl_settings.buzzer_inactive_time[light_state])); // Aguarda o tempo inativo do buzzer
+            stop_tone(BUZZER_A_PIN); // Garante que o buzzer A está parado
+
+            int freq = tl_settings.buzzer_frequency[light_state];
+            int active_time = tl_settings.buzzer_active_time[light_state];
+            int inactive_time = tl_settings.buzzer_inactive_time[light_state];
+
+            play_tone(BUZZER_B_PIN, freq);
+            for (int i = 0; i < active_time / 50; i++) {
+                if (tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
+
+            stop_tone(BUZZER_B_PIN);
+            for (int i = 0; i < inactive_time / 50; i++) {
+                if (tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
         }
     }
 }
