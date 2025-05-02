@@ -35,6 +35,7 @@ add_executable(${PROJECT_NAME}
         lib/ssd1306/ssd1306.c # SSD1306 library
         lib/ssd1306/display.c # Display library
         lib/ws2812b/ws2812b.c # WS2812B library
+        lib/buzzer/buzzer.c # Buzzer library
         )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR})
@@ -46,6 +47,8 @@ target_link_libraries(${PROJECT_NAME}
         hardware_gpio
         hardware_i2c
         hardware_pio
+        hardware_pwm
+        hardware_clocks
         FreeRTOS-Kernel
         FreeRTOS-Kernel-Heap4
         )
