@@ -20,3 +20,9 @@ void init_display(ssd1306_t *ssd)
     ssd1306_fill(ssd, false);                                                   // Limpa o display
     ssd1306_send_data(ssd);
 }
+
+void draw_centered_text(ssd1306_t *ssd, const char *text, int y)
+{
+    int x = (128 - (strlen(text) * 8)) / 2; // Calcula a posição X para centralizar
+    ssd1306_draw_string(ssd, text, x, y);   // Desenha o texto na posição calculada
+}

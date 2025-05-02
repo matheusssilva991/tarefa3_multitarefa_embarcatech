@@ -25,13 +25,14 @@ typedef struct traffic_light_config_t
     int matrix_led_indexes[3];   // Índices dos LEDs na matriz
     int matrix_led_colors[3][3]; // Cores dos LEDs (R, G, B)
     bool is_night_mode;          // Modo noturno
+    char *display_text;          // Texto a ser exibido no display
 } traffic_light_config_t;
 
 void gpio_irq_handler(uint gpio, uint32_t events);
 void vModeToggleTask();
-void vMatrixDisplayTask();
-void vRGBDisplayTask();
-void vDisplay3Task();
+void vLedMatrixTask();
+void vRGBLedTask();
+void vDisplayTask();
 void vTrafficLightControlTask();
 
 volatile traffic_light_config_t traffic_light_config = {
@@ -41,7 +42,7 @@ volatile traffic_light_config_t traffic_light_config = {
     .matrix_led_colors = {{0, 8, 0}, {4, 8, 0}, {8, 0, 0}},
     .is_night_mode = false,
 };
-volatile int light_state = 0; // Estado do semáforo (0: Verde, 1: Amarelo, 2: Vermelho)
+volatile int light_state = 2; // Estado do semáforo (0: Verde, 1: Amarelo, 2: Vermelho)
 
 int main()
 {
@@ -51,16 +52,16 @@ int main()
 
     gpio_set_irq_enabled_with_callback(BUTTON_B_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
-    /* xTaskCreate(vrgb_display_task, "Semáforo - Led RGB", configMINIMAL_STACK_SIZE,
-                NULL, tskIDLE_PRIORITY, NULL); */
-    xTaskCreate(vRGBDisplayTask, "Led RGB", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vDisplayTask, "Display OLED", configMINIMAL_STACK_SIZE,
                 NULL, tskIDLE_PRIORITY, NULL);
-    xTaskCreate(vMatrixDisplayTask, "Matriz de Led", configMINIMAL_STACK_SIZE,
+    xTaskCreate(vRGBLedTask, "Led RGB", configMINIMAL_STACK_SIZE,
+                NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(vLedMatrixTask, "Matriz de Led", configMINIMAL_STACK_SIZE,
                 NULL, tskIDLE_PRIORITY, NULL);
     xTaskCreate(vModeToggleTask, "Mudar modo", configMINIMAL_STACK_SIZE,
                 NULL, tskIDLE_PRIORITY + 1, NULL);
     xTaskCreate(vTrafficLightControlTask, "Controle do Semáforo", configMINIMAL_STACK_SIZE,
-        NULL, tskIDLE_PRIORITY + 1, NULL);
+                NULL, tskIDLE_PRIORITY, NULL);
 
     vTaskStartScheduler();
     panic_unsupported();
@@ -85,13 +86,18 @@ void vModeToggleTask()
             traffic_light_config.is_night_mode = !traffic_light_config.is_night_mode; // Alterna o modo
             last_press = now;
 
+            if (traffic_light_config.is_night_mode)
+            {
+                light_state = 1; // Muda para o estado amarelo no modo noturno
+            }
+
             printf("Modo noturno: %s\n", traffic_light_config.is_night_mode ? "Ativado" : "Desativado");
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-void vRGBDisplayTask()
+void vRGBLedTask()
 {
     init_leds();
 
@@ -102,78 +108,76 @@ void vRGBDisplayTask()
             gpio_put(RED_LED_PIN, true);
             gpio_put(GREEN_LED_PIN, true);
             gpio_put(BLUE_LED_PIN, false);
-            // vTaskDelay(pdMS_TO_TICKS(TRAFFIC_LIGHT_DELAY_MS));
         }
         else
         {
             gpio_put(RED_LED_PIN, traffic_light_config.rgb_led_state[light_state][0]);
             gpio_put(GREEN_LED_PIN, traffic_light_config.rgb_led_state[light_state][1]);
             gpio_put(BLUE_LED_PIN, traffic_light_config.rgb_led_state[light_state][2]);
-            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
-            {
-                if (traffic_light_config.is_night_mode)
-                    break;
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
         }
+        vTaskDelay(pdMS_TO_TICKS(10)); // Atualiza frequentemente
     }
 }
 
-void vMatrixDisplayTask()
+void vLedMatrixTask()
 {
-    ws2812b_init(MATRIX_LED_PIN); // Inicializa o driver de LED
-    ws2812b_clear();              // Limpa a matriz de LED
+    ws2812b_init(MATRIX_LED_PIN);
+    ws2812b_clear();
 
     while (true)
     {
         if (traffic_light_config.is_night_mode)
         {
-            ws2812b_clear();              // Limpa a matriz de LED
+            ws2812b_clear();
             ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
             ws2812b_write();
-            vTaskDelay(pdMS_TO_TICKS(250));
         }
         else
         {
-            ws2812b_clear(); // Limpa a matriz de LED
+            ws2812b_clear();
             ws2812b_set_led(traffic_light_config.matrix_led_indexes[light_state],
                             traffic_light_config.matrix_led_colors[light_state][0],
                             traffic_light_config.matrix_led_colors[light_state][1],
                             traffic_light_config.matrix_led_colors[light_state][2]);
             ws2812b_write();
-            for (int i = 0; i < TRAFFIC_LIGHT_DELAY_MS; i += 10)
-            {
-                if (traffic_light_config.is_night_mode)
-                    break;
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
         }
+        vTaskDelay(pdMS_TO_TICKS(10)); // Atualiza frequentemente
     }
 }
 
-void vDisplay3Task()
+void vDisplayTask()
 {
     ssd1306_t ssd;      // Inicializa a estrutura do display
     init_display(&ssd); // Inicializa o display
 
-    char str_y[5]; // Buffer para armazenar a string
-    int contador = 0;
+    char mode_text[20]; // Buffer para armazenar o texto do modo
     bool cor = true;
+
     while (true)
     {
-        sprintf(str_y, "%d", contador);                      // Converte em string
-        contador++;                                          // Incrementa o contador
-        ssd1306_fill(&ssd, !cor);                            // Limpa o display
-        ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor);        // Desenha um retângulo
-        ssd1306_line(&ssd, 3, 25, 123, 25, cor);             // Desenha uma linha
-        ssd1306_line(&ssd, 3, 37, 123, 37, cor);             // Desenha uma linha
-        ssd1306_draw_string(&ssd, "CEPEDI   TIC37", 8, 6);   // Desenha uma string
-        ssd1306_draw_string(&ssd, "EMBARCATECH", 20, 16);    // Desenha uma string
-        ssd1306_draw_string(&ssd, "  FreeRTOS", 10, 28);     // Desenha uma string
-        ssd1306_draw_string(&ssd, "Contador  LEDs", 10, 41); // Desenha uma string
-        ssd1306_draw_string(&ssd, str_y, 40, 52);            // Desenha uma string
-        ssd1306_send_data(&ssd);                             // Atualiza o display
-        sleep_ms(735);
+
+        if (traffic_light_config.is_night_mode)
+            sprintf(mode_text, "Modo Noturno"); // Define o texto do modo
+        else
+            sprintf(mode_text, "Modo Normal"); // Define o texto do modo
+
+        ssd1306_fill(&ssd, !cor);                     // Limpa o display
+        ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor); // Desenha um retângulo
+        draw_centered_text(&ssd, mode_text, 8);   // Desenha o texto do modo
+        ssd1306_line(&ssd, 3, 19, 127, 19, cor);      // Desenha uma linha
+
+        if (light_state == 0)
+        {
+            draw_centered_text(&ssd, "Pode", 28); // Desenha "Pode"
+            draw_centered_text(&ssd, "Atravessar", 38); // Desenha "Atravessar"
+        }
+        else if (light_state == 1)
+            draw_centered_text(&ssd, "Atencao!", 36); // Desenha "Atenção"
+        else if (light_state == 2)
+            draw_centered_text(&ssd, "Pare!", 36); // Desenha "Pare"
+
+        ssd1306_send_data(&ssd); // Atualiza o display
+        vTaskDelay(pdMS_TO_TICKS(200)); // Atualiza frequentemente
     }
 }
 
@@ -184,11 +188,12 @@ void vTrafficLightControlTask()
         if (!traffic_light_config.is_night_mode)
         {
             // Atualiza o estado do semáforo
-            light_state = (light_state + 1) % 3; // Incrementa e reinicia para 0 após 2
+            light_state = (light_state + 1) % 3;               // Incrementa e reinicia para 0 após 2
             vTaskDelay(pdMS_TO_TICKS(TRAFFIC_LIGHT_DELAY_MS)); // Aguarda o tempo do estado atual
         }
         else
         {
+            // No modo noturno, mantém o estado fixo
             vTaskDelay(pdMS_TO_TICKS(100)); // Aguarda um tempo menor no modo noturno
         }
     }
