@@ -110,6 +110,7 @@ void vModeToggleTask()
 }
 
 void vRGBLedTask()
+
 {
     init_leds();
 
@@ -117,9 +118,24 @@ void vRGBLedTask()
     {
         if (tl_settings.is_night_mode)
         {
+            // Pisca lentamente no modo noturno
             gpio_put(RED_LED_PIN, true);
             gpio_put(GREEN_LED_PIN, true);
-            gpio_put(BLUE_LED_PIN, false);
+            gpio_put(BLUE_LED_PIN, false); // Amarelo
+            for (int i = 0; i < 40; i++) // Liga por 2000ms em fatias de 50ms
+            {
+                if (!tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
+
+            gpio_put(RED_LED_PIN, false);
+            gpio_put(GREEN_LED_PIN, false);
+            gpio_put(BLUE_LED_PIN, false); // Desliga
+            for (int i = 0; i < 40; i++) // Desliga por 2000ms em fatias de 50ms
+            {
+                if (!tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
         }
         else
         {
@@ -140,9 +156,23 @@ void vLedMatrixTask()
     {
         if (tl_settings.is_night_mode)
         {
+            // Pisca lentamente no modo noturno
             ws2812b_clear();
             ws2812b_set_led(12, 4, 8, 0); // Define o LED 12 como amarelo
             ws2812b_write();
+            for (int i = 0; i < 40; i++) // Liga por 2000ms em fatias de 50ms
+            {
+                if (!tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
+
+            ws2812b_clear(); // Desliga todos os LEDs
+            ws2812b_write();
+            for (int i = 0; i < 40; i++) // Desliga por 2000ms em fatias de 50ms
+            {
+                if (!tl_settings.is_night_mode) break;
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
         }
         else
         {
