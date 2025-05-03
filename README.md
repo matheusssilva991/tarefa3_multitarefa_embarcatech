@@ -45,8 +45,8 @@ Este projeto implementa um sistema de controle de semáforo inteligente utilizan
 Clone o Repositório:
 
 ```bash
-    git clone https://github.com/matheusssilva991/tarefa3_multitarefa_embarcatech.git
-    cd tarefa3_multitarefa_embarcatech
+git clone https://github.com/matheusssilva991/tarefa3_multitarefa_embarcatech.git
+cd tarefa3_multitarefa_embarcatech
 ```
 
 Importe o projeto no VS Code utilizando a extensão Raspberry Pi Pico
@@ -61,16 +61,16 @@ Configure o Caminho do FreeRTOS no CMakeLists.txt:
 - Localize a linha onde o FreeRTOS é incluído e ajuste o caminho para - apontar para a pasta onde o FreeRTOS está localizado no seu sistema:
 
 ```bash
-    set(FREERTOS_PATH "caminho/para/freertos/source")
+set(FREERTOS_PATH "caminho/para/freertos/source")
 ```
 
 Compile o Projeto:
 
 ```bash
-    mkdir build
-    cd build
-    cmake -G Ninja ..
-    ninja
+mkdir build
+cd build
+cmake -G Ninja ..
+ninja
 ```
 
 ## Link da demonstração
