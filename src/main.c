@@ -21,7 +21,8 @@
 
 typedef struct traffic_light_config_t
 {
-    int rgb_led_state[3][3];     // Estado dos LEDs RGB (0: off, 1: on)
+    //Estados do semáforo: [0]Verde, [1]Amarelo, [2]Vermelho
+    int rgb_led_state[3][3];     // Valores do LED RGB (R, G, B) para cada estado do semáforo.
     int matrix_led_indexes[3];   // Índices dos LEDs na matriz
     int matrix_led_colors[3][3]; // Cores dos LEDs (R, G, B)
     bool is_night_mode;          // Modo noturno
